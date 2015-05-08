@@ -113,10 +113,10 @@ A simple example
     <!--do your stuff-->
     <script type="text/javascript" charset="utf-8">
         $(document).ready(function(){
-            $('#simple-example').dataTable({
-                "bProcessing": true,
-                "bServerSide": true,
-                "sAjaxSource": "${request.route_path('simple_example')}"
+            var table =$('#simple-example').DataTable({
+                "processing": true,
+                "serverSide": true,
+                "ajax": "${request.route_path('simple_example')}"
             });
         });
     </script>
