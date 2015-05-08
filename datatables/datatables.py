@@ -7,7 +7,7 @@ from sqlalchemy.orm.properties import RelationshipProperty
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.sql.expression import cast
 from sqlalchemy import String
-
+import re
 from collections import namedtuple
 from logging import getLogger
 
@@ -110,11 +110,10 @@ class DataTables:
         """Outputs the results in the format needed by DataTables
         """
         output = {}
-        output['sEcho'] = str(int(self.request_values['sEcho']))
-        output['iTotalRecords'] = str(self.cardinality)
-        output['iTotalDisplayRecords'] = str(self.cardinality_filtered)
-
-        output['aaData'] = self.results
+        output['draw'] = str(int(self.request_values['draw']))
+        output['recordsTotal'] = str(self.cardinality)
+        output['recordsFiltered'] = str(self.cardinality_filtered)
+        output['data'] = self.results
 
         return output
 
@@ -157,7 +156,7 @@ class DataTables:
         """Construct the query, by adding filtering(LIKE) on all
         columns when the datatable's search box is used
         """
-        search_value = self.request_values.get('sSearch')
+        search_value = self.request_values.get('search[value]')
         condition = None
 
         def search(idx, col):
@@ -196,7 +195,7 @@ class DataTables:
         if search_value:
             conditions = []
             for idx, col in enumerate(self.columns):
-                if self.request_values.get('bSearchable_%s' % idx) in (
+                if self.request_values.get('columns[%s][searchable]' % idx) in (
                         True, 'true') and col.searchable:
                     sqla_obj, column_name = search(idx, col)
                     conditions.append(
@@ -204,10 +203,8 @@ class DataTables:
             condition = or_(*conditions)
         conditions = []
         for idx, col in enumerate(self.columns):
-            search_value2 = self.request_values.get('sSearch_%s' % idx)
-
-            if search_value2 is not None:
-
+            if self.request_values.get('columns[%s][search][value]' % idx):
+                search_value2 = self.request_values.get('columns[%s][search][value]' % idx)
                 sqla_obj, column_name = search(idx, col)
 
                 if col.search_like:
@@ -237,10 +234,15 @@ class DataTables:
 
         Order = namedtuple('order', ['name', 'dir'])
 
-        if self.request_values.get('iSortingCols') > 0:
-
-            for i in range(int(self.request_values['iSortingCols'])):
-                sorting.append(Order(self.columns[int(self.request_values['iSortCol_' + str(i)])].column_name, self.request_values['sSortDir_' + str(i)]))
+        if self.request_values.get('order[0][column]'):
+            cols = len([(key, value)
+                        for key, value
+                        in self.request_values.iteritems()
+                        if re.search(r'order.\d+..column.', key)])
+            for i in range(cols):
+                col_id = int(self.request_values.get('order[%s][column]' % i))
+                sorting.append(Order(self.columns[col_id].column_name,
+                               self.request_values.get('order[%s][dir]' % i)))
 
         for sort in sorting:
             tmp_sort_name = sort.name.split('.')
@@ -289,10 +291,10 @@ class DataTables:
         """
         pages = namedtuple('pages', ['start', 'length'])
 
-        if (self.request_values['iDisplayStart'] != "") \
-                and (self.request_values['iDisplayLength'] != -1):
-            pages.start = int(self.request_values['iDisplayStart'])
-            pages.length = int(self.request_values['iDisplayLength'])
+        if (self.request_values['start'] != "")
+        and (self.request_values['length'] != -1):
+            pages.start = int(self.request_values['start'])
+            pages.length = int(self.request_values['length'])
 
         offset = pages.start + pages.length
         self.query = self.query.slice(pages.start, offset)
