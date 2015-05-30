@@ -291,7 +291,7 @@ class DataTables:
         """
         pages = namedtuple('pages', ['start', 'length'])
 
-        if (self.request_values['start'] != "")
+        if (self.request_values['start'] != "") \
         and (self.request_values['length'] != -1):
             pages.start = int(self.request_values['start'])
             pages.length = int(self.request_values['length'])
